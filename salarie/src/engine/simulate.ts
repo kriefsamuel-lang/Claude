@@ -24,7 +24,6 @@ function computeNetFromBrut(brut: number, input: SalarieInput, p: SalariedYearPa
   const cpLines = computeCreditPoints(input.personal, input.fiscalYear, p);
   const totalPts = totalCreditPoints(cpLines);
   const ir = computeIR(brut, pension.employeeContrib, pension.employeeZikuy, totalPts, p);
-
   return round2(brut - bl.employeeTotal - ir.netTax - pension.employeeContrib - keren.employeeContrib);
 }
 
@@ -36,10 +35,10 @@ export function simulate(input: SalarieInput, p: SalariedYearParams): SalarieRes
   if (input.mode === 'brut') {
     brut = input.salaryInput;
   } else {
-    const result = grossFromNet(input.salaryInput, (b) => computeNetFromBrut(b, input, p));
-    brut = round2(result.brut);
-    solverConverged = result.converged;
-    solverIterations = result.iterations;
+    const res = grossFromNet(input.salaryInput, (b) => computeNetFromBrut(b, input, p));
+    brut = round2(res.brut);
+    solverConverged = res.converged;
+    solverIterations = res.iterations;
   }
 
   const bl = computeBL(brut, p);
@@ -59,7 +58,6 @@ export function simulate(input: SalarieInput, p: SalariedYearParams): SalarieRes
   const indirect = computeIndirectCosts(brut, input.employmentRate, input.indirectCosts, p);
 
   const net = round2(brut - bl.employeeTotal - ir.netTax - pension.employeeContrib - keren.employeeContrib);
-
   const totalEmployeeDeductions = round2(bl.employeeTotal + ir.netTax + pension.employeeContrib + keren.employeeContrib);
   const totalEmployerDirectCosts = round2(brut + bl.employerBL + pension.employerTotal + keren.employerContrib);
   const totalEmployerIndirect = indirect.totalMonthly;

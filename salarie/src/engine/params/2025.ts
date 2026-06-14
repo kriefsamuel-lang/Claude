@@ -1,57 +1,42 @@
 import type { SalariedYearParams } from './types';
 
-/**
- * Paramètres fiscaux 2025 — simulateur charges salariales (שכיר).
- *
- * NB : תיקון 252 est entré en vigueur le 1er février 2025.
- * Ce fichier applique les taux post-תיקון 252 à toute l'année 2025
- * (simplification documentée — écart janvier 2025 non matérialisé).
- *
- * ⚠️ Valeurs marquées "À VALIDER" à contrôler contre les circulaires 2025.
- */
-const params2025: SalariedYearParams = {
+export const params2025: SalariedYearParams = {
   year: 2025,
-
-  creditPointValue: 2_904, // même valeur 2025
+  creditPointValue: 2904,
 
   incomeTax: {
-    // Barème 2025 (tranches annuelles 2025 ÷ 12). À VALIDER לוח עזר 2025.
     brackets: [
-      { upTo: 7_010,  rate: 0.10 },
-      { upTo: 10_060, rate: 0.14 },
-      { upTo: 16_150, rate: 0.20 }, // À VALIDER borne 2025
-      { upTo: 22_440, rate: 0.31 }, // À VALIDER
-      { upTo: 46_690, rate: 0.35 }, // À VALIDER
+      { upTo: 6_950,  rate: 0.10 },
+      { upTo: 9_980,  rate: 0.14 },
+      { upTo: 17_400, rate: 0.20 },
+      { upTo: 22_440, rate: 0.31 },
+      { upTo: 46_690, rate: 0.35 },
       { upTo: null,   rate: 0.47 },
     ],
-    surtaxThresholdMonthly: 60_130, // À VALIDER
+    surtaxThresholdMonthly: 60_130,
     surtaxRate: 0.03,
   },
 
   bituachLeumi: {
-    reducedMonthlyCeiling: 7_522,  // À VALIDER — btl.gov.il 2025
-    maxMonthlyIncome: 49_030,      // À VALIDER — btl.gov.il 2025
-
+    reducedMonthlyCeiling: 7_522,
+    maxMonthlyIncome: 49_030,
     employee: {
-      // Post-תיקון 252 (applicable dès fév 2025). À VALIDER — חוזר BTL 2025.
-      reduced: { leumi: 0.0104, health: 0.0323 },
-      full:    { leumi: 0.0700, health: 0.0517 },
+      reduced: { leumi: 0.0104, health: 0.0310 },
+      full:    { leumi: 0.0700, health: 0.0500 },
     },
     employer: {
-      // À VALIDER — חוזר BTL 2025.
       reduced: 0.0345,
       full:    0.0760,
     },
   },
 
   pension: {
-    qualifyingMonthlyCeiling: 9_200, // À VALIDER — רשות המסים 2025
-    employeeZikuyContribRate: 0.07,
+    qualifyingMonthlyCeiling: 9_400,
     employeeZikuyRate: 0.35,
+    employeeZikuyContribRate: 0.07,
   },
 
   kerenHishtalmout: {
-    // À VALIDER — רשות המסים 2025
     employerExemptMonthlyCeiling: 15_712,
     employerExemptRate: 0.075,
     employeeExemptMonthlyCeiling: 15_712,
@@ -59,7 +44,7 @@ const params2025: SalariedYearParams = {
   },
 
   indirectCosts: {
-    havaraValuePerDay: 470, // À VALIDER — צו הרחבה 2025
+    havaraValuePerDay: 470,
     havaraDays: [
       { upToYears: 5,    days: 10 },
       { upToYears: 10,   days: 11 },
@@ -82,36 +67,36 @@ const params2025: SalariedYearParams = {
     academicDegree: 1,
     dischargedSoldier: 2,
     children: {
-      age0:    1.5,
-      age1:    4.5,
-      age2:    4.5,
-      age3:    3.5,
+      age0: 1.5,
+      age1: 1.5,
+      age2: 4.5,
+      age3: 4.5,
       age4to5: 2.5,
-      age6to17: 1,
-      age18:   0.5,
+      age6to17: 2.0,
+      age18: 1.0,
     },
     olehScalePost2022: [
-      { fromMonth: 1,  toMonth: 12, pointsPerMonth: 1 / 12 },
-      { fromMonth: 13, toMonth: 30, pointsPerMonth: 1 / 4  },
-      { fromMonth: 31, toMonth: 42, pointsPerMonth: 1 / 6  },
-      { fromMonth: 43, toMonth: 54, pointsPerMonth: 1 / 12 },
+      { fromMonth: 1,   toMonth: 12,  pointsPerMonth: 3 / 12 },
+      { fromMonth: 13,  toMonth: 24,  pointsPerMonth: 2 / 12 },
+      { fromMonth: 25,  toMonth: 36,  pointsPerMonth: 1 / 12 },
+      { fromMonth: 37,  toMonth: 48,  pointsPerMonth: 0.5 / 12 },
     ],
     olehScalePre2022: [
-      { fromMonth: 1,  toMonth: 18, pointsPerMonth: 1 / 4  },
-      { fromMonth: 19, toMonth: 30, pointsPerMonth: 1 / 6  },
-      { fromMonth: 31, toMonth: 42, pointsPerMonth: 1 / 12 },
+      { fromMonth: 1,   toMonth: 18,  pointsPerMonth: 3 / 12 },
+      { fromMonth: 19,  toMonth: 30,  pointsPerMonth: 2 / 12 },
+      { fromMonth: 31,  toMonth: 42,  pointsPerMonth: 1 / 12 },
     ],
   },
 
   validationNotes: [
-    'Taux BL employé 2025 (post-תיקון 252) : À VALIDER — אגרת מעסיקים 651 2025 (btl.gov.il).',
-    'Taux BL employeur 2025 (réduit 3,45%) : À VALIDER — btl.gov.il 2025.',
-    'Seuil medraga réduite 7 522 ₪ et plafond 49 030 ₪ : À VALIDER.',
-    'Bornes IR 2025 (20% à 16 150 ; 31% à 22 440) : À VALIDER — לוח עזר 2025.',
-    'הכנסה מזכה pension 9 200 ₪/mois et plafond keren 15 712 ₪/mois : À VALIDER.',
-    'Valeur jour הבראה 470 ₪ : À VALIDER — צו הרחבה 2025.',
-    'תיקון 252 effectif 1er fév 2025 : taux de janvier non pris en compte (simplification).',
+    'BL 2025: taux employee reduit (leumi 1.04%, sante 3.10%) — A VALIDER circulaire BL 2025',
+    'BL 2025: taux employee plein (leumi 7.00%, sante 5.00%) — A VALIDER',
+    'BL 2025: taux employeur reduit 3.45%, plein 7.60% — A VALIDER',
+    'BL 2025: plafond reduit 7,522 ILS/mois — A VALIDER',
+    'BL 2025: plafond max 49,030 ILS/mois — A VALIDER',
+    'Pension: hakhnasa mezaka plafond 9,400 ILS/mois — A VALIDER',
+    'Keren Hishtalmout: plafond exoneration 15,712 ILS/mois — A VALIDER',
+    'Surtax: seuil mensuel 60,130 ILS — A VALIDER',
+    'Havara: 470 ILS/jour secteur prive 2025 — A VALIDER',
   ],
 };
-
-export default params2025;

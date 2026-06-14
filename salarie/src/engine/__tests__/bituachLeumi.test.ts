@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeBL } from '../bituachLeumi';
-import params2026 from '../params/2026';
+import { params2026 } from '../params/2026';
 
 const p = params2026;
 

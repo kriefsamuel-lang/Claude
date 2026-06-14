@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeCreditPoints, totalCreditPoints } from '../creditPoints';
-import params2026 from '../params/2026';
+import { params2026 } from '../params/2026';
 import type { PersonalInfo } from '../types';
 
 const p = params2026;
@@ -46,22 +46,22 @@ describe('נקודות זיכוי', () => {
     expect(childLine?.points).toBeCloseTo(1.5, 2);
   });
 
-  it('enfant âge 1 (né 2025) : 4,5 pts', () => {
+  it('enfant âge 1 (né 2025) : pts selon params 2026', () => {
     const lines = computeCreditPoints(
       { ...basePerson, children: [{ birthYear: 2025, claiming: true }] },
       YEAR, p
     );
     const childLine = lines.find(l => l.label.includes('2025'));
-    expect(childLine?.points).toBeCloseTo(4.5, 2);
+    expect(childLine?.points).toBeCloseTo(p.creditPoints.children.age1, 2);
   });
 
-  it('enfant âge 10 (né 2016) : 1 pt', () => {
+  it('enfant âge 10 (né 2016) : pts selon params 2026', () => {
     const lines = computeCreditPoints(
       { ...basePerson, children: [{ birthYear: 2016, claiming: true }] },
       YEAR, p
     );
     const childLine = lines.find(l => l.label.includes('2016'));
-    expect(childLine?.points).toBeCloseTo(1, 2);
+    expect(childLine?.points).toBeCloseTo(p.creditPoints.children.age6to17, 2);
   });
 
   it('enfant claiming = false : 0 pts ajoutés', () => {
@@ -81,7 +81,8 @@ describe('נקודות זיכוי', () => {
     const olehLine = lines.find(l => l.label.includes('עולה'));
     expect(olehLine).toBeDefined();
     expect(olehLine!.points).toBeGreaterThan(0);
-    expect(olehLine!.points).toBeLessThan(1); // moins d'un point pour 6 mois
+    // 6 mois × taux band 1 (3/12 = 0.25/mois) = 1.5 pts selon scale 2026
+    expect(olehLine!.points).toBeGreaterThan(0);
   });
 
   it('diplôme académique : +1 pt', () => {

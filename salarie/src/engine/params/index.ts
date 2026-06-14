@@ -1,16 +1,12 @@
+export { params2025 } from './2025';
+export { params2026 } from './2026';
+export type { SalariedYearParams, TaxBracket, OlehBand } from './types';
+
+import { params2025 } from './2025';
+import { params2026 } from './2026';
 import type { SalariedYearParams } from './types';
-import params2025 from './2025';
-import params2026 from './2026';
 
-const PARAMS: Record<number, SalariedYearParams> = {
-  2025: params2025,
-  2026: params2026,
-};
-
-export function getParams(year: number): SalariedYearParams {
-  const p = PARAMS[year];
-  if (!p) throw new Error(`Paramètres non disponibles pour l'année ${year}`);
-  return p;
+export function getParams(year: 2025 | 2026): SalariedYearParams {
+  if (year === 2025) return params2025;
+  return params2026;
 }
-
-export const availableYears = Object.keys(PARAMS).map(Number).sort() as number[];

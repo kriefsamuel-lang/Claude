@@ -13,7 +13,7 @@ export interface PersonalInfo {
   spouseNoIncome: boolean;
   children: ChildEntry[];
   paysMezonot: boolean;
-  aliyahDate: string | null; // ISO YYYY-MM-DD
+  aliyahDate: string | null;
   hasAcademicDegree: boolean;
   isDischargedSoldier: boolean;
 }
@@ -41,7 +41,7 @@ export interface IndirectCostsParams {
 export interface SalarieInput {
   mode: InputMode;
   salaryInput: number;
-  fiscalYear: number;
+  fiscalYear: 2025 | 2026;
   employmentRate: number;
   personal: PersonalInfo;
   pension: PensionParams;
@@ -50,30 +50,21 @@ export interface SalarieInput {
   clientName: string;
 }
 
-// --- Result types ---
-
 export interface BLResult {
+  grossSalary: number;
   employeeLeumi: number;
   employeeHealth: number;
   employeeTotal: number;
   employerBL: number;
 }
 
-export interface IRBracketLine {
-  rate: number;
-  base: number;
-  tax: number;
-}
-
 export interface IRResult {
   taxableIncome: number;
-  bracketLines: IRBracketLine[];
   bracketTax: number;
   surtax: number;
-  creditPointsTotal: number;
+  creditPoints: number;
   creditPointsValue: number;
   pensionCredit: number;
-  grossTax: number;
   netTax: number;
 }
 
@@ -88,7 +79,8 @@ export interface PensionResult {
 export interface KerenResult {
   employeeContrib: number;
   employerContrib: number;
-  employerTaxableExcess: number;
+  employerExempt: number;
+  employerTaxable: number;
 }
 
 export interface IndirectCostsResult {

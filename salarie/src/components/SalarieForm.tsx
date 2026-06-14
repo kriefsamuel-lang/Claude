@@ -137,7 +137,7 @@ export default function SalarieForm({ onCalculate }: Props) {
             <label className="form-label">Année fiscale</label>
             <select
               value={input.fiscalYear}
-              onChange={e => set('fiscalYear', parseInt(e.target.value))}
+              onChange={e => set('fiscalYear', parseInt(e.target.value) as 2025 | 2026)}
               className="form-select"
             >
               <option value={2026}>2026</option>

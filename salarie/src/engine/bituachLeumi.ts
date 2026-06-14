@@ -1,34 +1,27 @@
+import { round2 } from './format';
 import type { SalariedYearParams } from './params/types';
 import type { BLResult } from './types';
-import { round2 } from './format';
 
-/**
- * Calcul des cotisations ביטוח לאומי pour un salarié (שכיר).
- * Deux medragot : réduite (sous le seuil) et pleine (au-dessus).
- * L'employeur ne cotise que pour la part BL (pas de part santé).
- */
 export function computeBL(monthlySalary: number, p: SalariedYearParams): BLResult {
   const capped = Math.min(monthlySalary, p.bituachLeumi.maxMonthlyIncome);
   const reducedPart = Math.min(capped, p.bituachLeumi.reducedMonthlyCeiling);
   const fullPart = Math.max(0, capped - p.bituachLeumi.reducedMonthlyCeiling);
 
-  const employeeLeumi = round2(
+  const employeeLeumi =
     reducedPart * p.bituachLeumi.employee.reduced.leumi +
-    fullPart    * p.bituachLeumi.employee.full.leumi
-  );
-  const employeeHealth = round2(
+    fullPart * p.bituachLeumi.employee.full.leumi;
+  const employeeHealth =
     reducedPart * p.bituachLeumi.employee.reduced.health +
-    fullPart    * p.bituachLeumi.employee.full.health
-  );
-  const employerBL = round2(
+    fullPart * p.bituachLeumi.employee.full.health;
+  const employerBL =
     reducedPart * p.bituachLeumi.employer.reduced +
-    fullPart    * p.bituachLeumi.employer.full
-  );
+    fullPart * p.bituachLeumi.employer.full;
 
   return {
-    employeeLeumi,
-    employeeHealth,
+    grossSalary: monthlySalary,
+    employeeLeumi: round2(employeeLeumi),
+    employeeHealth: round2(employeeHealth),
     employeeTotal: round2(employeeLeumi + employeeHealth),
-    employerBL,
+    employerBL: round2(employerBL),
   };
 }

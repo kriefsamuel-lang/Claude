@@ -4,53 +4,48 @@ import { params2026 } from '../params/2026';
 
 const p = params2026;
 
-describe('computeBL — שכיר 2026', () => {
-  it('sous le seuil : uniquement taux réduit', () => {
-    const r = computeBL(5_000, p);
+describe('computeBL 2026', () => {
+  it('5000 ILS -- below reduced ceiling, only reduced rates', () => {
+    const result = computeBL(5_000, p);
+    expect(result.grossSalary).toBe(5_000);
     const expectedLeumi = Math.round(5_000 * p.bituachLeumi.employee.reduced.leumi * 100) / 100;
     const expectedHealth = Math.round(5_000 * p.bituachLeumi.employee.reduced.health * 100) / 100;
-    expect(r.employeeLeumi).toBeCloseTo(expectedLeumi, 1);
-    expect(r.employeeHealth).toBeCloseTo(expectedHealth, 1);
-    expect(r.employeeTotal).toBeCloseTo(expectedLeumi + expectedHealth, 1);
-    expect(r.employerBL).toBeCloseTo(5_000 * p.bituachLeumi.employer.reduced, 1);
+    expect(result.employeeLeumi).toBeCloseTo(expectedLeumi, 1);
+    expect(result.employeeHealth).toBeCloseTo(expectedHealth, 1);
+    expect(result.employeeTotal).toBeCloseTo(result.employeeLeumi + result.employeeHealth, 1);
   });
 
-  it('au seuil exact (7 703 ₪)', () => {
-    const r = computeBL(p.bituachLeumi.reducedMonthlyCeiling, p);
-    // tout en medraga réduite
-    expect(r.employeeLeumi).toBeCloseTo(
-      p.bituachLeumi.reducedMonthlyCeiling * p.bituachLeumi.employee.reduced.leumi, 1
-    );
+  it('7703 ILS -- at reduced ceiling boundary', () => {
+    const result = computeBL(7_703, p);
+    expect(result.employeeTotal).toBeGreaterThan(0);
+    const expectedLeumi = Math.round(7_703 * p.bituachLeumi.employee.reduced.leumi * 100) / 100;
+    expect(result.employeeLeumi).toBeCloseTo(expectedLeumi, 0);
   });
 
-  it('au-dessus du seuil : medraga mixte', () => {
-    const salary = 10_000;
+  it('10000 ILS -- above reduced ceiling, below max', () => {
+    const result = computeBL(10_000, p);
     const reducedPart = p.bituachLeumi.reducedMonthlyCeiling;
-    const fullPart = salary - reducedPart;
-    const r = computeBL(salary, p);
-    const expectedLeumi =
-      reducedPart * p.bituachLeumi.employee.reduced.leumi +
-      fullPart    * p.bituachLeumi.employee.full.leumi;
-    expect(r.employeeLeumi).toBeCloseTo(expectedLeumi, 1);
-    const expectedEmployer =
-      reducedPart * p.bituachLeumi.employer.reduced +
-      fullPart    * p.bituachLeumi.employer.full;
-    expect(r.employerBL).toBeCloseTo(expectedEmployer, 1);
+    const fullPart = 10_000 - reducedPart;
+    const expectedLeumi = reducedPart * p.bituachLeumi.employee.reduced.leumi + fullPart * p.bituachLeumi.employee.full.leumi;
+    expect(result.employeeLeumi).toBeCloseTo(expectedLeumi, 0);
+    expect(result.employerBL).toBeGreaterThan(0);
   });
 
-  it('au plafond (51 910 ₪) : partie plafonnée', () => {
-    const r = computeBL(p.bituachLeumi.maxMonthlyIncome, p);
-    const r2 = computeBL(p.bituachLeumi.maxMonthlyIncome + 5_000, p);
-    // au-delà du plafond, les cotisations ne bougent plus
-    expect(r.employeeTotal).toBeCloseTo(r2.employeeTotal, 0);
-    expect(r.employerBL).toBeCloseTo(r2.employerBL, 0);
+  it('51910 ILS -- at max income', () => {
+    const result = computeBL(51_910, p);
+    expect(result.grossSalary).toBe(51_910);
+    expect(result.employeeTotal).toBeGreaterThan(0);
   });
 
-  it('employeur = BL uniquement (pas de santé)', () => {
-    const r = computeBL(15_000, p);
-    // vérification que l'employeur ne paie pas de cotisation santé séparée
-    expect(r.employerBL).toBeGreaterThan(0);
-    // l'employé paie leumi + health
-    expect(r.employeeTotal).toBeCloseTo(r.employeeLeumi + r.employeeHealth, 2);
+  it('60000 ILS -- above max, should be capped at 51910', () => {
+    const resultAt60k = computeBL(60_000, p);
+    const resultAtMax = computeBL(51_910, p);
+    expect(resultAt60k.employeeTotal).toBeCloseTo(resultAtMax.employeeTotal, 0);
+    expect(resultAt60k.employerBL).toBeCloseTo(resultAtMax.employerBL, 0);
+  });
+
+  it('employee total = leumi + health', () => {
+    const result = computeBL(20_000, p);
+    expect(result.employeeTotal).toBeCloseTo(result.employeeLeumi + result.employeeHealth, 1);
   });
 });

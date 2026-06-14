@@ -1,418 +1,366 @@
 import { useState } from 'react';
-import type { SalarieInput, ChildEntry, MaritalStatus } from '../engine/types';
+import type { SalarieInput, PersonalInfo, PensionParams, KerenParams, IndirectCostsParams, ChildEntry } from '../engine/types';
 
 interface Props {
-  onCalculate: (input: SalarieInput) => void;
+  onSimulate: (input: SalarieInput) => void;
+  loading: boolean;
 }
 
-const DEFAULT_INPUT: SalarieInput = {
-  mode: 'brut',
-  salaryInput: 15_000,
-  fiscalYear: 2026,
-  employmentRate: 1,
-  personal: {
-    birthYear: 1985,
-    gender: 'M',
-    maritalStatus: 'single',
-    spouseNoIncome: false,
-    children: [],
-    paysMezonot: false,
-    aliyahDate: null,
-    hasAcademicDegree: false,
-    isDischargedSoldier: false,
-  },
-  pension: {
-    productType: 'keren_pensia',
-    employeeTagmoulimRate: 0.06,
-    employerTagmoulimRate: 0.065,
-    employerPitsouimRate: 0.06,
-  },
-  keren: { enabled: true, employeeRate: 0.025, employerRate: 0.075 },
-  indirectCosts: { includeHavara: true, includeHolidays: false, includePublicHolidays: false, seniority: 3 },
-  clientName: '',
-};
-
-function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex justify-between items-center px-4 py-3 bg-gray-50 text-left font-semibold text-sm text-navy hover:bg-gray-100 transition-colors"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 text-left font-medium text-navy hover:bg-gray-100 transition-colors"
       >
         <span>{title}</span>
-        <span className="text-gray-400">{open ? '▲' : '▼'}</span>
+        <span className="text-gold text-lg">{open ? '▲' : '▼'}</span>
       </button>
-      {open && <div className="px-4 py-4 space-y-3">{children}</div>}
+      {open && <div className="p-4 space-y-3">{children}</div>}
     </div>
   );
 }
 
-function PctInput({ value, onChange, step = 0.5 }: { value: number; onChange: (v: number) => void; step?: number }) {
-  return (
-    <input
-      type="number"
-      min={0}
-      max={100}
-      step={step}
-      value={(value * 100).toFixed(1)}
-      onChange={e => onChange(parseFloat(e.target.value) / 100)}
-      className="form-input w-24 text-right"
-    />
-  );
+function Label({ children }: { children: React.ReactNode }) {
+  return <label className="block text-sm font-medium text-gray-700">{children}</label>;
 }
 
-export default function SalarieForm({ onCalculate }: Props) {
-  const [input, setInput] = useState<SalarieInput>(DEFAULT_INPUT);
+const defaultPersonal: PersonalInfo = {
+  birthYear: 1985,
+  gender: 'M',
+  maritalStatus: 'single',
+  spouseNoIncome: false,
+  children: [],
+  paysMezonot: false,
+  aliyahDate: null,
+  hasAcademicDegree: false,
+  isDischargedSoldier: false,
+};
 
-  const set = <K extends keyof SalarieInput>(key: K, val: SalarieInput[K]) =>
-    setInput(prev => ({ ...prev, [key]: val }));
+const defaultPension: PensionParams = {
+  productType: 'keren_pensia',
+  employeeTagmoulimRate: 0.06,
+  employerTagmoulimRate: 0.065,
+  employerPitsouimRate: 0.06,
+};
 
-  const setPersonal = <K extends keyof SalarieInput['personal']>(key: K, val: SalarieInput['personal'][K]) =>
-    setInput(prev => ({ ...prev, personal: { ...prev.personal, [key]: val } }));
+const defaultKeren: KerenParams = {
+  enabled: false,
+  employeeRate: 0.025,
+  employerRate: 0.075,
+};
 
-  const setPension = <K extends keyof SalarieInput['pension']>(key: K, val: SalarieInput['pension'][K]) =>
-    setInput(prev => ({ ...prev, pension: { ...prev.pension, [key]: val } }));
+const defaultIndirect: IndirectCostsParams = {
+  includeHavara: true,
+  includeHolidays: true,
+  includePublicHolidays: true,
+  seniority: 1,
+};
 
-  const setKeren = <K extends keyof SalarieInput['keren']>(key: K, val: SalarieInput['keren'][K]) =>
-    setInput(prev => ({ ...prev, keren: { ...prev.keren, [key]: val } }));
+export default function SalarieForm({ onSimulate, loading }: Props) {
+  const [mode, setMode] = useState<'brut' | 'net'>('brut');
+  const [salaryInput, setSalaryInput] = useState(15_000);
+  const [fiscalYear, setFiscalYear] = useState<2025 | 2026>(2026);
+  const [employmentRate, setEmploymentRate] = useState(1);
+  const [personal, setPersonal] = useState<PersonalInfo>(defaultPersonal);
+  const [pension, setPension] = useState<PensionParams>(defaultPension);
+  const [keren, setKeren] = useState<KerenParams>(defaultKeren);
+  const [indirect, setIndirect] = useState<IndirectCostsParams>(defaultIndirect);
+  const [clientName, setClientName] = useState('');
 
-  const setIndirect = <K extends keyof SalarieInput['indirectCosts']>(key: K, val: SalarieInput['indirectCosts'][K]) =>
-    setInput(prev => ({ ...prev, indirectCosts: { ...prev.indirectCosts, [key]: val } }));
+  function addChild() {
+    setPersonal(p => ({ ...p, children: [...p.children, { birthYear: 2020, claiming: true }] }));
+  }
 
-  const addChild = () =>
-    setPersonal('children', [...input.personal.children, { birthYear: 2020, claiming: true }]);
+  function removeChild(idx: number) {
+    setPersonal(p => ({ ...p, children: p.children.filter((_, i) => i !== idx) }));
+  }
 
-  const updateChild = (i: number, child: ChildEntry) =>
-    setPersonal('children', input.personal.children.map((c, idx) => idx === i ? child : c));
+  function updateChild(idx: number, field: keyof ChildEntry, value: unknown) {
+    setPersonal(p => ({
+      ...p,
+      children: p.children.map((c, i) => i === idx ? { ...c, [field]: value } : c),
+    }));
+  }
 
-  const removeChild = (i: number) =>
-    setPersonal('children', input.personal.children.filter((_, idx) => idx !== i));
-
-  const handleSubmit = (e: React.FormEvent) => {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onCalculate(input);
-  };
+    onSimulate({ mode, salaryInput, fiscalYear, employmentRate, personal, pension, keren, indirectCosts: indirect, clientName });
+  }
+
+  const inputClass = "mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent";
+  const radioClass = "mr-2 accent-navy";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Mode + Salaire */}
-      <div className="card space-y-4">
-        <div>
-          <p className="form-label">Mode de saisie</p>
-          <div className="flex gap-3">
-            {(['brut', 'net'] as const).map(m => (
-              <label key={m} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="mode"
-                  checked={input.mode === m}
-                  onChange={() => set('mode', m)}
-                  className="accent-navy"
-                />
-                <span className="text-sm font-medium">
-                  {m === 'brut' ? 'Je connais le BRUT' : 'Je connais le NET'}
-                </span>
-              </label>
-            ))}
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="p-4 bg-white border border-gray-200 rounded-lg">
+        <Label>Mode de saisie</Label>
+        <div className="flex gap-6 mt-2">
+          <label className="flex items-center cursor-pointer">
+            <input type="radio" className={radioClass} name="mode" value="brut" checked={mode === 'brut'} onChange={() => setMode('brut')} />
+            <span className="text-sm font-medium">BRUT</span>
+          </label>
+          <label className="flex items-center cursor-pointer">
+            <input type="radio" className={radioClass} name="mode" value="net" checked={mode === 'net'} onChange={() => setMode('net')} />
+            <span className="text-sm font-medium">NET</span>
+          </label>
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="form-label">
-              Salaire {input.mode === 'brut' ? 'BRUT' : 'NET'} mensuel (₪)
-            </label>
-            <input
-              type="number"
-              min={1}
-              value={input.salaryInput}
-              onChange={e => set('salaryInput', parseFloat(e.target.value))}
-              className="form-input"
-              required
-            />
-          </div>
-          <div>
-            <label className="form-label">Année fiscale</label>
-            <select
-              value={input.fiscalYear}
-              onChange={e => set('fiscalYear', parseInt(e.target.value) as 2025 | 2026)}
-              className="form-select"
-            >
-              <option value={2026}>2026</option>
-              <option value={2025}>2025</option>
-            </select>
-          </div>
-        </div>
-
+      <div className="p-4 bg-white border border-gray-200 rounded-lg space-y-3">
         <div>
-          <label className="form-label">Taux d'emploi (היקף משרה) : {Math.round(input.employmentRate * 100)} %</label>
+          <Label>{mode === 'brut' ? 'Salaire brut mensuel (ILS)' : 'Salaire net mensuel souhaite (ILS)'}</Label>
+          <input
+            type="number"
+            min={1}
+            step={100}
+            value={salaryInput}
+            onChange={e => setSalaryInput(Number(e.target.value))}
+            className={inputClass}
+            required
+          />
+        </div>
+        <div>
+          <Label>Annee fiscale</Label>
+          <select value={fiscalYear} onChange={e => setFiscalYear(Number(e.target.value) as 2025 | 2026)} className={inputClass}>
+            <option value={2026}>2026</option>
+            <option value={2025}>2025</option>
+          </select>
+        </div>
+        <div>
+          <Label>Taux d'emploi: {Math.round(employmentRate * 100)}%</Label>
           <input
             type="range"
             min={10}
             max={100}
             step={10}
-            value={Math.round(input.employmentRate * 100)}
-            onChange={e => set('employmentRate', parseInt(e.target.value) / 100)}
-            className="w-full accent-navy"
-          />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>10 %</span><span>50 %</span><span>100 %</span>
-          </div>
-        </div>
-
-        <div>
-          <label className="form-label">Nom du client / salarié (pour le PDF)</label>
-          <input
-            type="text"
-            value={input.clientName}
-            onChange={e => set('clientName', e.target.value)}
-            placeholder="Ex. : M. Cohen David"
-            className="form-input"
+            value={Math.round(employmentRate * 100)}
+            onChange={e => setEmploymentRate(Number(e.target.value) / 100)}
+            className="mt-1 w-full accent-navy"
           />
         </div>
       </div>
 
-      {/* Situation personnelle */}
-      <Section title="Situation personnelle (נקודות זיכוי)" defaultOpen={false}>
+      <Section title="Situation personnelle" defaultOpen={true}>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="form-label">Année de naissance</label>
+            <Label>Annee de naissance</Label>
             <input
               type="number"
-              min={1930}
-              max={2008}
-              value={input.personal.birthYear}
-              onChange={e => setPersonal('birthYear', parseInt(e.target.value))}
-              className="form-input"
+              min={1940}
+              max={2005}
+              value={personal.birthYear}
+              onChange={e => setPersonal(p => ({ ...p, birthYear: Number(e.target.value) }))}
+              className={inputClass}
             />
           </div>
           <div>
-            <label className="form-label">Sexe</label>
-            <select
-              value={input.personal.gender}
-              onChange={e => setPersonal('gender', e.target.value as 'M' | 'F')}
-              className="form-select"
-            >
-              <option value="M">Homme (2,25 pts base)</option>
-              <option value="F">Femme (2,75 pts base)</option>
+            <Label>Sexe</Label>
+            <select value={personal.gender} onChange={e => setPersonal(p => ({ ...p, gender: e.target.value as 'M' | 'F' }))} className={inputClass}>
+              <option value="M">Homme</option>
+              <option value="F">Femme</option>
             </select>
           </div>
         </div>
-
         <div>
-          <label className="form-label">Situation maritale</label>
-          <select
-            value={input.personal.maritalStatus}
-            onChange={e => setPersonal('maritalStatus', e.target.value as MaritalStatus)}
-            className="form-select"
-          >
-            <option value="single">Célibataire</option>
-            <option value="married">Marié(e)</option>
-            <option value="divorced">Divorcé(e)</option>
+          <Label>Situation maritale</Label>
+          <select value={personal.maritalStatus} onChange={e => setPersonal(p => ({ ...p, maritalStatus: e.target.value as PersonalInfo['maritalStatus'] }))} className={inputClass}>
+            <option value="single">Celibataire</option>
+            <option value="married">Marie(e)</option>
+            <option value="divorced">Divorce(e)</option>
             <option value="widowed">Veuf/Veuve</option>
           </select>
         </div>
-
-        {input.personal.maritalStatus === 'married' && (
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={input.personal.spouseNoIncome}
-              onChange={e => setPersonal('spouseNoIncome', e.target.checked)}
-              className="accent-navy"
-            />
-            Conjoint(e) sans revenu (+1 pt — conditions §37)
+        {personal.maritalStatus === 'married' && (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={personal.spouseNoIncome} onChange={e => setPersonal(p => ({ ...p, spouseNoIncome: e.target.checked }))} className="accent-navy" />
+            <span className="text-sm">Conjoint(e) sans revenu</span>
           </label>
         )}
 
-        {input.personal.maritalStatus === 'divorced' && (
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={input.personal.paysMezonot}
-              onChange={e => setPersonal('paysMezonot', e.target.checked)}
-              className="accent-navy"
-            />
-            Paie des מזונות (+1 pt)
-          </label>
-        )}
-
-        {/* Enfants */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="form-label mb-0">Enfants</span>
-            <button type="button" onClick={addChild} className="text-xs text-navy underline">+ Ajouter</button>
+            <Label>Enfants</Label>
+            <button type="button" onClick={addChild} className="text-xs bg-navy text-white px-2 py-1 rounded hover:bg-opacity-80">+ Ajouter</button>
           </div>
-          {input.personal.children.map((child, i) => (
-            <div key={i} className="flex gap-2 items-center mb-2">
-              <div>
-                <label className="text-xs text-gray-500">Naissance</label>
-                <input
-                  type="number"
-                  min={1980}
-                  max={2026}
-                  value={child.birthYear}
-                  onChange={e => updateChild(i, { ...child, birthYear: parseInt(e.target.value) })}
-                  className="form-input w-24"
-                />
-              </div>
-              <label className="flex items-center gap-1 text-xs mt-4 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={child.claiming}
-                  onChange={e => updateChild(i, { ...child, claiming: e.target.checked })}
-                  className="accent-navy"
-                />
-                Je réclame
+          {personal.children.map((child, idx) => (
+            <div key={idx} className="flex items-center gap-2 mb-2">
+              <input
+                type="number"
+                min={2000}
+                max={2026}
+                value={child.birthYear}
+                onChange={e => updateChild(idx, 'birthYear', Number(e.target.value))}
+                className="border border-gray-300 rounded px-2 py-1 text-sm w-24"
+                placeholder="Annee"
+              />
+              <label className="flex items-center gap-1 text-sm">
+                <input type="checkbox" checked={child.claiming} onChange={e => updateChild(idx, 'claiming', e.target.checked)} className="accent-navy" />
+                Reclamant
               </label>
-              <button type="button" onClick={() => removeChild(i)} className="text-red-400 mt-4 text-xs">✕</button>
+              <button type="button" onClick={() => removeChild(idx)} className="text-red-400 text-xs hover:text-red-600">x</button>
             </div>
           ))}
         </div>
 
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={personal.paysMezonot} onChange={e => setPersonal(p => ({ ...p, paysMezonot: e.target.checked }))} className="accent-navy" />
+          <span className="text-sm">Paie mezonot (pension alimentaire)</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={personal.hasAcademicDegree} onChange={e => setPersonal(p => ({ ...p, hasAcademicDegree: e.target.checked }))} className="accent-navy" />
+          <span className="text-sm">Diplome academique (universitaire)</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={personal.isDischargedSoldier} onChange={e => setPersonal(p => ({ ...p, isDischargedSoldier: e.target.checked }))} className="accent-navy" />
+          <span className="text-sm">Soldat libere (hayal meshouhar)</span>
+        </label>
         <div>
-          <label className="form-label">Date d'alyah (si עולה חדש)</label>
+          <Label>Date d'alyah (optionnel)</Label>
           <input
             type="date"
-            value={input.personal.aliyahDate ?? ''}
-            onChange={e => setPersonal('aliyahDate', e.target.value || null)}
-            className="form-input"
+            value={personal.aliyahDate ?? ''}
+            onChange={e => setPersonal(p => ({ ...p, aliyahDate: e.target.value || null }))}
+            className={inputClass}
           />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={input.personal.hasAcademicDegree}
-              onChange={e => setPersonal('hasAcademicDegree', e.target.checked)}
-              className="accent-navy"
-            />
-            Diplôme académique récent (+1 pt)
-          </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={input.personal.isDischargedSoldier}
-              onChange={e => setPersonal('isDischargedSoldier', e.target.checked)}
-              className="accent-navy"
-            />
-            חייל משוחרר (service militaire complet, +2 pts)
-          </label>
         </div>
       </Section>
 
-      {/* Pension */}
-      <Section title="Pension / Épargne (פנסיה וקרן)" defaultOpen={false}>
+      <Section title="Pension / Epargne retraite">
         <div>
-          <label className="form-label">Type de produit</label>
-          <select
-            value={input.pension.productType}
-            onChange={e => setPension('productType', e.target.value as 'keren_pensia' | 'bituach_menahalim')}
-            className="form-select"
-          >
-            <option value="keren_pensia">קרן פנסיה</option>
-            <option value="bituach_menahalim">ביטוח מנהלים</option>
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span>Tagmoulim employé (תגמולים עובד)</span>
-            <div className="flex items-center gap-1">
-              <PctInput value={input.pension.employeeTagmoulimRate} onChange={v => setPension('employeeTagmoulimRate', v)} />
-              <span className="text-xs text-gray-500">%</span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>Tagmoulim employeur (תגמולים מעביד)</span>
-            <div className="flex items-center gap-1">
-              <PctInput value={input.pension.employerTagmoulimRate} onChange={v => setPension('employerTagmoulimRate', v)} />
-              <span className="text-xs text-gray-500">%</span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span>
-              Pitsouim employeur (פיצויים מעביד)
-              <span className="text-xs text-gray-400 ml-1">6 % légal · 8,33 % §14</span>
-            </span>
-            <div className="flex items-center gap-1">
-              <PctInput value={input.pension.employerPitsouimRate} onChange={v => setPension('employerPitsouimRate', v)} />
-              <span className="text-xs text-gray-500">%</span>
-            </div>
+          <Label>Type de produit</Label>
+          <div className="flex gap-4 mt-1">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="radio" className={radioClass} name="productType" value="keren_pensia" checked={pension.productType === 'keren_pensia'} onChange={() => setPension(p => ({ ...p, productType: 'keren_pensia' }))} />
+              Keren Pensia
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="radio" className={radioClass} name="productType" value="bituach_menahalim" checked={pension.productType === 'bituach_menahalim'} onChange={() => setPension(p => ({ ...p, productType: 'bituach_menahalim' }))} />
+              Bituah Menahalim
+            </label>
           </div>
         </div>
-
-        <div className="border-t pt-3">
-          <label className="flex items-center gap-2 text-sm font-medium cursor-pointer mb-2">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <Label>Employe tagmoulim %</Label>
             <input
-              type="checkbox"
-              checked={input.keren.enabled}
-              onChange={e => setKeren('enabled', e.target.checked)}
-              className="accent-navy"
+              type="number"
+              min={0}
+              max={20}
+              step={0.5}
+              value={(pension.employeeTagmoulimRate * 100).toFixed(1)}
+              onChange={e => setPension(p => ({ ...p, employeeTagmoulimRate: Number(e.target.value) / 100 }))}
+              className={inputClass}
             />
-            קרן השתלמות
+          </div>
+          <div>
+            <Label>Employeur tagmoulim %</Label>
+            <input
+              type="number"
+              min={0}
+              max={20}
+              step={0.5}
+              value={(pension.employerTagmoulimRate * 100).toFixed(1)}
+              onChange={e => setPension(p => ({ ...p, employerTagmoulimRate: Number(e.target.value) / 100 }))}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <Label>Employeur pitsouim %</Label>
+            <input
+              type="number"
+              min={0}
+              max={20}
+              step={0.5}
+              value={(pension.employerPitsouimRate * 100).toFixed(1)}
+              onChange={e => setPension(p => ({ ...p, employerPitsouimRate: Number(e.target.value) / 100 }))}
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-500 mt-1">6% ou 8.33% (indemnite de licenciement)</p>
+          </div>
+        </div>
+
+        <div className="border-t pt-3 mt-2">
+          <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+            <input type="checkbox" checked={keren.enabled} onChange={e => setKeren(k => ({ ...k, enabled: e.target.checked }))} className="accent-navy" />
+            Keren Hishtalmout (Fonds de perfectionnement)
           </label>
-          {input.keren.enabled && (
-            <div className="space-y-2 pl-4">
-              <div className="flex items-center justify-between text-sm">
-                <span>Taux employé</span>
-                <div className="flex items-center gap-1">
-                  <PctInput value={input.keren.employeeRate} onChange={v => setKeren('employeeRate', v)} />
-                  <span className="text-xs text-gray-500">%</span>
-                </div>
+          {keren.enabled && (
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <div>
+                <Label>Employe %</Label>
+                <input
+                  type="number"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={(keren.employeeRate * 100).toFixed(1)}
+                  onChange={e => setKeren(k => ({ ...k, employeeRate: Number(e.target.value) / 100 }))}
+                  className={inputClass}
+                />
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Taux employeur</span>
-                <div className="flex items-center gap-1">
-                  <PctInput value={input.keren.employerRate} onChange={v => setKeren('employerRate', v)} />
-                  <span className="text-xs text-gray-500">%</span>
-                </div>
+              <div>
+                <Label>Employeur %</Label>
+                <input
+                  type="number"
+                  min={0}
+                  max={15}
+                  step={0.5}
+                  value={(keren.employerRate * 100).toFixed(1)}
+                  onChange={e => setKeren(k => ({ ...k, employerRate: Number(e.target.value) / 100 }))}
+                  className={inputClass}
+                />
               </div>
             </div>
           )}
         </div>
       </Section>
 
-      {/* Charges indirectes */}
-      <Section title="Charges indirectes (estimations)" defaultOpen={false}>
-        <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded">
-          Ces provisions sont des estimations indicatives — voir avertissement dans les résultats.
-        </p>
+      <Section title="Charges indirectes (provisions)">
         <div>
-          <label className="form-label">Ancienneté (années)</label>
+          <Label>Anciennete (annees)</Label>
           <input
             type="number"
             min={0}
             max={50}
-            value={input.indirectCosts.seniority}
-            onChange={e => setIndirect('seniority', parseInt(e.target.value) || 0)}
-            className="form-input w-24"
+            value={indirect.seniority}
+            onChange={e => setIndirect(i => ({ ...i, seniority: Number(e.target.value) }))}
+            className={inputClass}
           />
         </div>
-        <div className="space-y-2">
-          {[
-            { key: 'includeHavara' as const, label: 'דמי הבראה' },
-            { key: 'includeHolidays' as const, label: 'Congés annuels (חופשה שנתית)' },
-            { key: 'includePublicHolidays' as const, label: 'Jours fériés (חגים)' },
-          ].map(({ key, label }) => (
-            <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={input.indirectCosts[key]}
-                onChange={e => setIndirect(key, e.target.checked)}
-                className="accent-navy"
-              />
-              {label}
-            </label>
-          ))}
-        </div>
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" checked={indirect.includeHavara} onChange={e => setIndirect(i => ({ ...i, includeHavara: e.target.checked }))} className="accent-navy" />
+          Dme havara (indemnite de convalescence)
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" checked={indirect.includeHolidays} onChange={e => setIndirect(i => ({ ...i, includeHolidays: e.target.checked }))} className="accent-navy" />
+          Conges annuels (houfsha shnatit)
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" checked={indirect.includePublicHolidays} onChange={e => setIndirect(i => ({ ...i, includePublicHolidays: e.target.checked }))} className="accent-navy" />
+          Jours feries legaux (hagim)
+        </label>
       </Section>
 
-      <button type="submit" className="w-full btn-primary text-center py-4 text-base">
-        Calculer les charges
+      <div className="p-4 bg-white border border-gray-200 rounded-lg">
+        <Label>Nom du client / salarie (pour PDF)</Label>
+        <input
+          type="text"
+          value={clientName}
+          onChange={e => setClientName(e.target.value)}
+          placeholder="Ex: David Cohen"
+          className={inputClass}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full py-3 bg-navy text-white font-semibold rounded-lg hover:bg-opacity-90 transition-colors disabled:opacity-50 border-2 border-gold"
+      >
+        {loading ? 'Calcul en cours...' : 'Calculer'}
       </button>
     </form>
   );

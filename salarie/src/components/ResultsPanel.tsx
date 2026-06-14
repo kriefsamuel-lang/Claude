@@ -1,171 +1,203 @@
-import type { SalarieResult, SalarieInput } from '../engine/types';
+import type { SalarieResult } from '../engine/types';
 import { formatCurrency, formatPercent } from '../engine/format';
-import { PdfButton } from '../pdf/PdfButton';
+import PdfButton from '../pdf/PdfButton';
+import type { SalarieInput } from '../engine/types';
 
 interface Props {
-  result: SalarieResult;
-  input: SalarieInput;
-  year: number;
+  result: SalarieResult | null;
+  loading: boolean;
+  input: SalarieInput | null;
 }
 
-function Row({ label, value, indent = false, note }: { label: string; value: string; indent?: boolean; note?: string }) {
+function Row({ label, value, indent = false, bold = false, highlight = false }: {
+  label: string;
+  value: string;
+  indent?: boolean;
+  bold?: boolean;
+  highlight?: boolean;
+}) {
   return (
-    <div className={`flex justify-between items-center py-1.5 text-sm ${indent ? 'pl-4' : ''}`}>
-      <span className="text-gray-600">
-        {label}
-        {note && <span className="ml-1 text-xs text-gray-400">({note})</span>}
-      </span>
-      <span className="font-medium tabular-nums">{value}</span>
+    <div className={`flex justify-between items-center py-1.5 ${indent ? 'pl-4' : ''} ${highlight ? 'bg-gold bg-opacity-10 rounded px-2' : ''}`}>
+      <span className={`text-sm ${bold ? 'font-semibold text-navy' : 'text-gray-600'}`}>{label}</span>
+      <span className={`text-sm font-mono ${bold ? 'font-bold text-navy' : 'text-gray-800'}`}>{value}</span>
     </div>
   );
 }
 
-function RowTotal({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between items-center py-2 font-semibold text-navy border-t border-gray-200 mt-1">
-      <span>{label}</span>
-      <span className="tabular-nums">{value}</span>
-    </div>
-  );
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h3 className="font-semibold text-navy border-b border-gold border-opacity-40 pb-1 mb-2 mt-4">{children}</h3>;
 }
 
-function Block({ title, borderColor = 'border-navy', children }: { title: string; borderColor?: string; children: React.ReactNode }) {
-  return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 border-l-4 ${borderColor}`}>
-      <h3 className="text-xs font-semibold text-navy uppercase tracking-wide mb-3">{title}</h3>
-      {children}
-    </div>
-  );
-}
+export default function ResultsPanel({ result, loading, input }: Props) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-navy border-t-gold"></div>
+      </div>
+    );
+  }
 
-export default function ResultsPanel({ result, input, year }: Props) {
+  if (!result) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400">
+        <div className="text-center">
+          <div className="text-4xl mb-3">ILS</div>
+          <p>Entrez un salaire et cliquez sur "Calculer"</p>
+        </div>
+      </div>
+    );
+  }
+
   const { brut, net, bl, ir, pension, keren, creditPointLines, indirect } = result;
 
   return (
     <div className="space-y-4">
-      {input.mode === 'net' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm text-blue-700">
-          Mode NET → BRUT : solveur bisection — {result.solverIterations} itération{result.solverIterations > 1 ? 's' : ''},
-          {result.solverConverged ? ' convergé ✓' : ' ⚠️ non convergé'}
+      {!result.solverConverged && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
+          Attention: le solver net-&gt;brut n'a pas converge. Verifiez la valeur saisie.
         </div>
       )}
 
-      {/* Bloc 1 : Côté employé */}
-      <Block title="Côté employé — du brut au net">
-        <Row label="Salaire brut" value={formatCurrency(brut)} />
-        <div className="border-t border-gray-100 my-2" />
-        <Row label="ביטוח לאומי (BL)" value={`− ${formatCurrency(bl.employeeLeumi)}`} indent />
-        <Row label="ביטוח בריאות (Santé)" value={`− ${formatCurrency(bl.employeeHealth)}`} indent />
-        <Row label="Pension (tagmoulim employé)" value={`− ${formatCurrency(pension.employeeContrib)}`} indent
-          note={`${(input.pension.employeeTagmoulimRate * 100).toFixed(1)} %`} />
-        {keren.employeeContrib > 0 && (
-          <Row label="קרן השתלמות (employé)" value={`− ${formatCurrency(keren.employeeContrib)}`} indent
-            note={`${(input.keren.employeeRate * 100).toFixed(1)} %`} />
-        )}
-        <div className="border-t border-gray-100 my-2" />
-        <div className="bg-gray-50 rounded p-3 mb-1">
-          <p className="text-xs font-semibold text-gray-500 mb-2">Impôt sur le revenu (מס הכנסה)</p>
-          <Row label="Revenu imposable" value={formatCurrency(ir.taxableIncome)} indent />
-          <Row label="Impôt par tranches progressives" value={formatCurrency(ir.bracketTax)} indent />
-          {ir.surtax > 0 && <Row label="מס יסף (3 %)" value={formatCurrency(ir.surtax)} indent />}
-          <div className="border-t border-gray-200 my-1" />
-          <p className="text-xs text-gray-500 mb-1">
-            {creditPointLines.map(l => `${l.label} (${l.points} pts)`).join(' · ')}
-          </p>
-          <Row label={`נקודות זיכוי (${ir.creditPoints.toFixed(2)} pts × ${formatCurrency(242)}/mois)`}
-            value={`− ${formatCurrency(ir.creditPointsValue)}`} indent />
-          {ir.pensionCredit > 0 && (
-            <Row label="זיכוי pension §45א (35 %)" value={`− ${formatCurrency(ir.pensionCredit)}`} indent />
-          )}
-        </div>
-        <Row label="Impôt sur le revenu NET" value={`− ${formatCurrency(ir.netTax)}`} />
-        <RowTotal label="NET À PAYER" value={formatCurrency(net)} />
-      </Block>
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-lg font-bold text-navy mb-3">Cote employe</h2>
 
-      {/* Bloc 2 : Charges employeur directes */}
-      <Block title="Charges employeur directes (עלות ישירה)">
-        <Row label="Salaire brut" value={formatCurrency(brut)} />
-        <div className="border-t border-gray-100 my-2" />
-        <Row label="ביטוח לאומי employeur" value={`+ ${formatCurrency(bl.employerBL)}`} indent />
-        <Row label="Pension tagmoulim employeur" value={`+ ${formatCurrency(pension.employerTagmoulim)}`} indent
-          note={`${(input.pension.employerTagmoulimRate * 100).toFixed(1)} %`} />
-        <Row label="Pitsouim employeur (פיצויים)" value={`+ ${formatCurrency(pension.employerPitsouim)}`} indent
-          note={`${(input.pension.employerPitsouimRate * 100).toFixed(1)} %`} />
-        {keren.employerContrib > 0 && (
-          <Row label="קרן השתלמות employeur" value={`+ ${formatCurrency(keren.employerContrib)}`} indent
-            note={`${(input.keren.employerRate * 100).toFixed(1)} %`} />
-        )}
-        {keren.employerTaxable > 0 && (
-          <Row label="⚠️ Keren employeur hors plafond (avantage imposable)" value={formatCurrency(keren.employerTaxable)} indent />
-        )}
-        <RowTotal label="Coût direct employeur" value={formatCurrency(result.totalEmployerDirectCosts)} />
-      </Block>
+        <Row label="Salaire brut" value={formatCurrency(brut)} bold />
 
-      {/* Bloc 3 : Charges indirectes */}
-      {indirect.totalMonthly > 0 && (
-        <Block title="Charges indirectes — provisions estimatives" borderColor="border-gold">
-          <div className="inline-block text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium mb-3">
-            Provision indicative — non contractuelle
-          </div>
-          {indirect.havaraMonthly > 0 && (
-            <Row label={`דמי הבראה (ancienneté ${input.indirectCosts.seniority} ans)`}
-              value={`+ ${formatCurrency(indirect.havaraMonthly)}`} />
-          )}
-          {indirect.holidaysMonthly > 0 && (
-            <Row label="Congés annuels (provision mensuelle)" value={`+ ${formatCurrency(indirect.holidaysMonthly)}`} />
-          )}
-          {indirect.publicHolidaysMonthly > 0 && (
-            <Row label="Jours fériés — חגים (provision)" value={`+ ${formatCurrency(indirect.publicHolidaysMonthly)}`} />
-          )}
-          <RowTotal label="Total provisions mensuelles" value={formatCurrency(indirect.totalMonthly)} />
-        </Block>
-      )}
+        <SectionTitle>Bituah Leumi employe</SectionTitle>
+        <Row label="BL Leumi" value={`- ${formatCurrency(bl.employeeLeumi)}`} indent />
+        <Row label="Assurance maladie (Briut)" value={`- ${formatCurrency(bl.employeeHealth)}`} indent />
+        <Row label="Total BL employe" value={`- ${formatCurrency(bl.employeeTotal)}`} bold />
 
-      {/* Synthèse */}
-      <div className="bg-navy text-white rounded-xl p-6">
-        <h3 className="text-xs font-bold uppercase tracking-wide mb-4" style={{ color: '#C9A24B' }}>
-          Synthèse — עלות מעביד מלאה
-        </h3>
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          {[
-            { label: 'Salaire brut', val: formatCurrency(brut) },
-            { label: 'Net perçu', val: formatCurrency(net) },
-            { label: 'Charges directes employeur', val: formatCurrency(result.totalEmployerDirectCosts) },
-            { label: 'Provisions indirectes', val: formatCurrency(result.totalEmployerIndirect) },
-          ].map(({ label, val }) => (
-            <div key={label} className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.08)' }}>
-              <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>{label}</p>
-              <p className="text-base font-bold tabular-nums">{val}</p>
+        <SectionTitle>Impot sur le revenu (Mas Hakhnasa)</SectionTitle>
+        <Row label="Revenu imposable" value={formatCurrency(ir.taxableIncome)} indent />
+        <Row label="IR tranches" value={formatCurrency(ir.bracketTax)} indent />
+        {ir.surtax > 0 && <Row label="Mas Yasaf (surtaxe 3%)" value={formatCurrency(ir.surtax)} indent />}
+        <Row label={`Points de credit (${ir.creditPoints.toFixed(2)} pts)`} value={`- ${formatCurrency(ir.creditPointsValue)}`} indent />
+        {ir.pensionCredit > 0 && <Row label="Zikuy pension" value={`- ${formatCurrency(ir.pensionCredit)}`} indent />}
+        <Row label="IR net" value={`- ${formatCurrency(ir.netTax)}`} bold />
+
+        {creditPointLines.length > 0 && (
+          <details className="mt-2">
+            <summary className="text-xs text-gray-500 cursor-pointer">Detail points de credit</summary>
+            <div className="mt-1 space-y-0.5">
+              {creditPointLines.map((l, i) => (
+                <div key={i} className="flex justify-between text-xs text-gray-500 pl-2">
+                  <span>{l.label}</span><span>{l.points.toFixed(2)}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </details>
+        )}
+
+        <SectionTitle>Pension</SectionTitle>
+        <Row label="Tagmoulim employe" value={`- ${formatCurrency(pension.employeeContrib)}`} indent />
+
+        {keren.employeeContrib > 0 && (
+          <>
+            <SectionTitle>Keren Hishtalmout</SectionTitle>
+            <Row label="Keren employe" value={`- ${formatCurrency(keren.employeeContrib)}`} indent />
+          </>
+        )}
+
+        <div className="mt-4 pt-3 border-t-2 border-gold">
+          <Row label="NET A PAYER" value={formatCurrency(net)} bold highlight />
         </div>
-        <div className="rounded-xl p-4 text-center mb-4" style={{ background: 'rgba(201,162,75,0.2)', border: '1px solid rgba(201,162,75,0.4)' }}>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#C9A24B' }}>
-            Coût total employeur (עלות מעביד מלאה)
-          </p>
-          <p className="text-3xl font-bold tabular-nums">{formatCurrency(result.totalEmployerCost)}</p>
+
+        <div className="mt-2 text-xs text-gray-500 text-right">
+          Taux de charge salarie: {formatPercent(result.totalEmployeeDeductions / brut)}
         </div>
-        <div className="flex justify-between text-sm">
-          <div>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>Ratio Net / Coût total</p>
-            <p className="font-bold" style={{ color: '#C9A24B' }}>{formatPercent(result.netToCostRatio)}</p>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-lg font-bold text-navy mb-3">Charges employeur directes</h2>
+
+        <Row label="Salaire brut" value={formatCurrency(brut)} />
+
+        <SectionTitle>Bituah Leumi employeur</SectionTitle>
+        <Row label="BL employeur" value={formatCurrency(bl.employerBL)} indent />
+
+        <SectionTitle>Pension employeur</SectionTitle>
+        <Row label="Tagmoulim employeur" value={formatCurrency(pension.employerTagmoulim)} indent />
+        <Row label="Pitsouim (indemnite)" value={formatCurrency(pension.employerPitsouim)} indent />
+        <Row label="Total pension employeur" value={formatCurrency(pension.employerTotal)} bold />
+
+        {keren.employerContrib > 0 && (
+          <>
+            <SectionTitle>Keren Hishtalmout employeur</SectionTitle>
+            <Row label="Keren employeur" value={formatCurrency(keren.employerContrib)} indent />
+            {keren.employerTaxable > 0 && (
+              <Row label="dont taxable (au-dessus plafond)" value={formatCurrency(keren.employerTaxable)} indent />
+            )}
+          </>
+        )}
+
+        <div className="mt-4 pt-3 border-t-2 border-gold">
+          <Row label="Cout direct employeur" value={formatCurrency(result.totalEmployerDirectCosts)} bold highlight />
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h2 className="text-lg font-bold text-navy mb-3">Charges indirectes (provisions)</h2>
+
+        {indirect.havaraMonthly > 0 && (
+          <Row label="Havara (mensuel)" value={formatCurrency(indirect.havaraMonthly)} />
+        )}
+        {indirect.holidaysMonthly > 0 && (
+          <Row label="Conges annuels (mensuel)" value={formatCurrency(indirect.holidaysMonthly)} />
+        )}
+        {indirect.publicHolidaysMonthly > 0 && (
+          <Row label="Jours feries (mensuel)" value={formatCurrency(indirect.publicHolidaysMonthly)} />
+        )}
+        {indirect.totalMonthly === 0 && (
+          <p className="text-sm text-gray-400 italic">Aucune charge indirecte selectionnee</p>
+        )}
+
+        {indirect.totalMonthly > 0 && (
+          <div className="mt-3 pt-2 border-t border-gray-200">
+            <Row label="Total indirectes" value={formatCurrency(indirect.totalMonthly)} bold />
           </div>
-          <div className="text-right">
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>Charges salarié / Brut</p>
-            <p className="font-bold" style={{ color: '#C9A24B' }}>{formatPercent(result.totalEmployeeDeductions / brut)}</p>
+        )}
+
+        <p className="text-xs text-gray-400 mt-3 italic">
+          Provision estimative — ne constitue pas une obligation legale immediate
+        </p>
+      </div>
+
+      <div className="bg-navy text-white rounded-lg p-5">
+        <h2 className="text-lg font-bold mb-4 text-gold">Synthese — Cout employeur total</h2>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Salaire brut</span>
+            <span className="font-mono">{formatCurrency(brut)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span>Net a payer</span>
+            <span className="font-mono">{formatCurrency(net)}</span>
+          </div>
+          <div className="flex justify-between text-sm border-t border-white border-opacity-20 pt-2">
+            <span>Charges directes employeur</span>
+            <span className="font-mono">{formatCurrency(result.totalEmployerDirectCosts)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span>Charges indirectes (provisions)</span>
+            <span className="font-mono">{formatCurrency(result.totalEmployerIndirect)}</span>
+          </div>
+          <div className="flex justify-between text-xl font-bold border-t-2 border-gold pt-3 mt-3">
+            <span className="text-gold">Cout total employeur</span>
+            <span className="text-gold font-mono">{formatCurrency(result.totalEmployerCost)}</span>
+          </div>
+          <div className="flex justify-between text-sm opacity-75">
+            <span>Ratio net / cout total</span>
+            <span className="font-mono">{formatPercent(result.netToCostRatio)}</span>
           </div>
         </div>
       </div>
 
-      <div className="text-right">
-        <PdfButton result={result} input={input} year={year} />
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-700">
-        <strong>⚠️ Taux fiscaux {year} :</strong> plusieurs paramètres sont marqués "À VALIDER"
-        (BL employé/employeur, bornes IR, הבראה, plafond keren). Contrôler contre
-        אגרת מעסיקים 651, חוזר BTL {year}, לוח עזר רשות המסים avant usage en production.
-      </div>
+      {input && (
+        <div className="flex justify-end">
+          <PdfButton result={result} input={input} />
+        </div>
+      )}
     </div>
   );
 }

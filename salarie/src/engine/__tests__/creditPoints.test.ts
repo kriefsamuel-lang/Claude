@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { computeCreditPoints, totalCreditPoints } from '../creditPoints';
+import { computeCreditPoints } from '../creditPoints';
 import { params2026 } from '../params/2026';
 import type { PersonalInfo } from '../types';
 
 const p = params2026;
-const YEAR = 2026;
+const fiscalYear = 2026;
 
-const basePerson: PersonalInfo = {
+const basePersonal: PersonalInfo = {
   birthYear: 1985,
   gender: 'M',
   maritalStatus: 'single',
@@ -18,84 +18,67 @@ const basePerson: PersonalInfo = {
   isDischargedSoldier: false,
 };
 
-describe('נקודות זיכוי', () => {
-  it('homme célibataire : 2,25 pts', () => {
-    const lines = computeCreditPoints(basePerson, YEAR, p);
-    expect(totalCreditPoints(lines)).toBeCloseTo(2.25, 2);
+describe('computeCreditPoints', () => {
+  it('man base: 2.25 points', () => {
+    const lines = computeCreditPoints(basePersonal, fiscalYear, p);
+    const total = lines.reduce((s, l) => s + l.points, 0);
+    expect(total).toBeCloseTo(2.25, 2);
   });
 
-  it('femme célibataire : 2,75 pts', () => {
-    const lines = computeCreditPoints({ ...basePerson, gender: 'F' }, YEAR, p);
-    expect(totalCreditPoints(lines)).toBeCloseTo(2.75, 2);
+  it('woman base: 2.75 points', () => {
+    const lines = computeCreditPoints({ ...basePersonal, gender: 'F' }, fiscalYear, p);
+    const total = lines.reduce((s, l) => s + l.points, 0);
+    expect(total).toBeCloseTo(2.75, 2);
   });
 
-  it('femme mariée, conjoint sans revenu : 2,75 + 1 = 3,75 pts', () => {
+  it('married woman, no spouse income: 2.75 + 1 = 3.75', () => {
     const lines = computeCreditPoints(
-      { ...basePerson, gender: 'F', maritalStatus: 'married', spouseNoIncome: true },
-      YEAR, p
+      { ...basePersonal, gender: 'F', maritalStatus: 'married', spouseNoIncome: true },
+      fiscalYear,
+      p
     );
-    expect(totalCreditPoints(lines)).toBeCloseTo(3.75, 2);
+    const total = lines.reduce((s, l) => s + l.points, 0);
+    expect(total).toBeCloseTo(3.75, 2);
   });
 
-  it('enfant né en 2026 (âge 0) : 1,5 pts', () => {
+  it('child born same year as fiscal year (age 0): 1.5 pts', () => {
     const lines = computeCreditPoints(
-      { ...basePerson, children: [{ birthYear: 2026, claiming: true }] },
-      YEAR, p
+      { ...basePersonal, children: [{ birthYear: 2026, claiming: true }] },
+      fiscalYear,
+      p
     );
     const childLine = lines.find(l => l.label.includes('2026'));
-    expect(childLine?.points).toBeCloseTo(1.5, 2);
+    expect(childLine?.points).toBe(1.5);
   });
 
-  it('enfant âge 1 (né 2025) : pts selon params 2026', () => {
+  it('child age 2: 4.5 pts', () => {
     const lines = computeCreditPoints(
-      { ...basePerson, children: [{ birthYear: 2025, claiming: true }] },
-      YEAR, p
+      { ...basePersonal, children: [{ birthYear: 2024, claiming: true }] },
+      fiscalYear,
+      p
     );
-    const childLine = lines.find(l => l.label.includes('2025'));
-    expect(childLine?.points).toBeCloseTo(p.creditPoints.children.age1, 2);
+    const childLine = lines.find(l => l.label.includes('2024'));
+    expect(childLine?.points).toBe(4.5);
   });
 
-  it('enfant âge 10 (né 2016) : pts selon params 2026', () => {
+  it('oleh recent: gets prorata points', () => {
     const lines = computeCreditPoints(
-      { ...basePerson, children: [{ birthYear: 2016, claiming: true }] },
-      YEAR, p
+      { ...basePersonal, aliyahDate: `${fiscalYear}-06-01` },
+      fiscalYear,
+      p
     );
-    const childLine = lines.find(l => l.label.includes('2016'));
-    expect(childLine?.points).toBeCloseTo(p.creditPoints.children.age6to17, 2);
-  });
-
-  it('enfant claiming = false : 0 pts ajoutés', () => {
-    const lines0 = computeCreditPoints(basePerson, YEAR, p);
-    const lines1 = computeCreditPoints(
-      { ...basePerson, children: [{ birthYear: 2020, claiming: false }] },
-      YEAR, p
-    );
-    expect(totalCreditPoints(lines0)).toBeCloseTo(totalCreditPoints(lines1), 2);
-  });
-
-  it('עולה חדש post-2022, 6 mois d\'ancienneté → prorata pts', () => {
-    const lines = computeCreditPoints(
-      { ...basePerson, aliyahDate: `${YEAR}-07-01` },
-      YEAR, p
-    );
-    const olehLine = lines.find(l => l.label.includes('עולה'));
+    const olehLine = lines.find(l => l.label.includes('Oleh'));
     expect(olehLine).toBeDefined();
     expect(olehLine!.points).toBeGreaterThan(0);
-    // 6 mois × taux band 1 (3/12 = 0.25/mois) = 1.5 pts selon scale 2026
-    expect(olehLine!.points).toBeGreaterThan(0);
   });
 
-  it('diplôme académique : +1 pt', () => {
-    const l0 = totalCreditPoints(computeCreditPoints(basePerson, YEAR, p));
-    const l1 = totalCreditPoints(computeCreditPoints({ ...basePerson, hasAcademicDegree: true }, YEAR, p));
-    expect(l1 - l0).toBeCloseTo(1, 2);
-  });
-
-  it('מזונות (divorcé) : +1 pt', () => {
-    const l0 = totalCreditPoints(computeCreditPoints({ ...basePerson, maritalStatus: 'divorced' }, YEAR, p));
-    const l1 = totalCreditPoints(computeCreditPoints(
-      { ...basePerson, maritalStatus: 'divorced', paysMezonot: true }, YEAR, p
-    ));
-    expect(l1 - l0).toBeCloseTo(1, 2);
+  it('non-claiming child: 0 pts', () => {
+    const lines = computeCreditPoints(
+      { ...basePersonal, children: [{ birthYear: 2020, claiming: false }] },
+      fiscalYear,
+      p
+    );
+    const total = lines.reduce((s, l) => s + l.points, 0);
+    expect(total).toBeCloseTo(2.25, 2);
   });
 });

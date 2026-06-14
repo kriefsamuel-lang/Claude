@@ -1,49 +1,42 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import type { SalarieResult, SalarieInput } from '../engine/types';
 
 interface Props {
   result: SalarieResult;
   input: SalarieInput;
-  year: number;
 }
 
-export function PdfButton({ result, input, year }: Props) {
-  const [loading, setLoading] = useState(false);
+const PDFDownloadLinkLazy = lazy(() =>
+  import('@react-pdf/renderer').then(m => ({ default: m.PDFDownloadLink }))
+);
+const SalarieReportLazy = lazy(() => import('./SalarieReport'));
 
-  const handleClick = async () => {
-    setLoading(true);
-    try {
-      const { pdf } = await import('@react-pdf/renderer');
-      const { SalarieReport } = await import('./SalarieReport');
-      const blob = await pdf(<SalarieReport result={result} input={input} year={year} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const clientPart = input.clientName ? `_${input.clientName.replace(/\s+/g, '-')}` : '';
-      a.href = url;
-      a.download = `KE_Charges_Salariales_${year}${clientPart}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function PdfButton({ result, input }: Props) {
+  const [show, setShow] = useState(false);
+
+  if (!show) {
+    return (
+      <button
+        onClick={() => setShow(true)}
+        className="px-4 py-2 bg-gold text-navy font-semibold rounded-lg hover:bg-opacity-90 transition-colors text-sm"
+      >
+        Generer PDF
+      </button>
+    );
+  }
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={loading}
-      className="btn-secondary flex items-center gap-2 text-sm"
-    >
-      {loading ? (
-        <>
-          <span className="animate-spin">⏳</span> Génération PDF…
-        </>
-      ) : (
-        <>
-          <span>↓</span> Exporter PDF client
-        </>
-      )}
-    </button>
+    <Suspense fallback={<span className="text-sm text-gray-400">Preparation du PDF...</span>}>
+      <PDFDownloadLinkLazy
+        document={<SalarieReportLazy result={result} input={input} />}
+        fileName={`simulation-salariale-${input.fiscalYear}${input.clientName ? `-${input.clientName.replace(/\s+/g, '-')}` : ''}.pdf`}
+      >
+        {({ loading }) => (
+          <button className="px-4 py-2 bg-gold text-navy font-semibold rounded-lg hover:bg-opacity-90 transition-colors text-sm">
+            {loading ? 'Generation...' : 'Telecharger PDF'}
+          </button>
+        )}
+      </PDFDownloadLinkLazy>
+    </Suspense>
   );
 }

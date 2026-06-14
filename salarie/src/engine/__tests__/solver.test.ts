@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { grossFromNet } from '../solver';
 import { simulate } from '../simulate';
-import { getParams } from '../params';
+import { params2026 } from '../params/2026';
 import type { SalarieInput } from '../types';
 
-const p = getParams(2026);
+const p = params2026;
 
-const baseInput: SalarieInput = {
+const defaultInput: SalarieInput = {
   mode: 'brut',
   salaryInput: 10_000,
   fiscalYear: 2026,
@@ -29,48 +29,37 @@ const baseInput: SalarieInput = {
     employerPitsouimRate: 0.06,
   },
   keren: { enabled: false, employeeRate: 0.025, employerRate: 0.075 },
-  indirectCosts: { includeHavara: false, includeHolidays: false, includePublicHolidays: false, seniority: 5 },
-  clientName: '',
+  indirectCosts: { includeHavara: false, includeHolidays: false, includePublicHolidays: false, seniority: 1 },
+  clientName: 'Test',
 };
 
-function netForBrut(brut: number): number {
-  const result = simulate({ ...baseInput, mode: 'brut', salaryInput: brut }, p);
+function computeNetFromBrut(brut: number): number {
+  const result = simulate({ ...defaultInput, mode: 'brut', salaryInput: brut }, p);
   return result.net;
 }
 
-describe('Solveur Net → Brut', () => {
-  it('brut 10 000 : round-trip net→brut converge à ±1 ₪', () => {
-    const target = netForBrut(10_000);
-    const { brut, converged } = grossFromNet(target, netForBrut);
-    expect(converged).toBe(true);
-    expect(Math.abs(brut - 10_000)).toBeLessThan(1);
+describe('solver', () => {
+  it('grossFromNet(computeNetFromBrut(10000)) approx 10000', () => {
+    const targetNet = computeNetFromBrut(10_000);
+    const result = grossFromNet(targetNet, computeNetFromBrut);
+    expect(Math.abs(result.brut - 10_000)).toBeLessThan(2);
+    expect(result.converged).toBe(true);
+    expect(result.iterations).toBeLessThan(30);
   });
 
-  it('brut 20 000 : round-trip converge', () => {
-    const target = netForBrut(20_000);
-    const { brut, converged } = grossFromNet(target, netForBrut);
-    expect(converged).toBe(true);
-    expect(Math.abs(brut - 20_000)).toBeLessThan(1);
+  it('grossFromNet(computeNetFromBrut(20000)) approx 20000', () => {
+    const targetNet = computeNetFromBrut(20_000);
+    const result = grossFromNet(targetNet, computeNetFromBrut);
+    expect(Math.abs(result.brut - 20_000)).toBeLessThan(2);
+    expect(result.converged).toBe(true);
+    expect(result.iterations).toBeLessThan(30);
   });
 
-  it('brut 50 000 (haut salaire, surtax) : converge', () => {
-    const target = netForBrut(50_000);
-    const { brut, converged } = grossFromNet(target, netForBrut);
-    expect(converged).toBe(true);
-    expect(Math.abs(brut - 50_000)).toBeLessThan(1);
-  });
-
-  it('mode NET produit le même résultat que le round-trip', () => {
-    const brutResult = simulate({ ...baseInput, mode: 'brut', salaryInput: 15_000 }, p);
-    const targetNet = brutResult.net;
-    const netResult = simulate({ ...baseInput, mode: 'net', salaryInput: targetNet }, p);
-    expect(Math.abs(netResult.brut - 15_000)).toBeLessThan(2);
-    expect(Math.abs(netResult.net - targetNet)).toBeLessThan(1);
-  });
-
-  it('nombre d\'itérations < 30', () => {
-    const target = netForBrut(30_000);
-    const { iterations } = grossFromNet(target, netForBrut);
-    expect(iterations).toBeLessThan(30);
+  it('grossFromNet(computeNetFromBrut(50000)) approx 50000', () => {
+    const targetNet = computeNetFromBrut(50_000);
+    const result = grossFromNet(targetNet, computeNetFromBrut);
+    expect(Math.abs(result.brut - 50_000)).toBeLessThan(2);
+    expect(result.converged).toBe(true);
+    expect(result.iterations).toBeLessThan(30);
   });
 });

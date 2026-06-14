@@ -1,11 +1,8 @@
-import { Font } from '@react-pdf/renderer';
+export const FONT_FAMILY = 'Rubik';
 
-export function registerFonts() {
+export function registerFonts(Font: { register: (args: { family: string; src: string }) => void }) {
   Font.register({
     family: 'Rubik',
-    fonts: [
-      { src: '/fonts/Rubik-Regular.ttf', fontWeight: 400 },
-      { src: '/fonts/Rubik-Bold.ttf',    fontWeight: 700 },
-    ],
+    src: 'https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-4I-1UA.woff2',
   });
 }

@@ -1,6 +1,6 @@
+import { round2 } from './format';
 import type { SalariedYearParams } from './params/types';
 import type { KerenResult } from './types';
-import { round2 } from './format';
 
 export function computeKeren(
   monthlySalary: number,
@@ -13,7 +13,7 @@ export function computeKeren(
 
   const exemptBase = Math.min(monthlySalary, p.kerenHishtalmout.employerExemptMonthlyCeiling);
   const employerExempt = round2(Math.min(employerContrib, exemptBase * p.kerenHishtalmout.employerExemptRate));
-  const employerTaxable = round2(Math.max(0, employerContrib - employerExempt));
+  const employerTaxable = Math.max(0, round2(employerContrib - employerExempt));
 
   return { employeeContrib, employerContrib, employerExempt, employerTaxable };
 }
